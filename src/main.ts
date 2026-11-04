@@ -86,7 +86,7 @@ export default class ObsidianChordsPlugin extends Plugin {
       const nextStep = p.binding.steps[p.stepIndex];
       if (matchesStep(e, nextStep)) {
         e.preventDefault();
-        e.stopPropagation();
+        e.stopImmediatePropagation();
         p.stepIndex += 1;
         if (p.stepIndex >= p.binding.steps.length) {
           // complete
@@ -112,7 +112,7 @@ export default class ObsidianChordsPlugin extends Plugin {
       const first = b.steps[0];
       if (matchesStep(e, first)) {
         e.preventDefault();
-        e.stopPropagation();
+        e.stopImmediatePropagation();
         const timer = window.setTimeout(() => this.cancelPending(), this.settings.timeoutMs);
         this.pending = { binding: b, stepIndex: 1, timer };
         this.updateStatus(this.pendingStatusText());
@@ -335,7 +335,7 @@ class RecordChordModal extends Modal {
       if (["Control", "Meta", "Shift", "Alt"].includes(e.key)) return;
 
       e.preventDefault();
-      e.stopPropagation();
+      e.stopImmediatePropagation();
 
       const mods: string[] = [];
       if (e.ctrlKey) mods.push("Ctrl");

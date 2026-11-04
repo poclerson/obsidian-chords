@@ -174,7 +174,7 @@ var ObsidianChordsPlugin = class extends import_obsidian.Plugin {
       const nextStep = p.binding.steps[p.stepIndex];
       if (matchesStep(e, nextStep)) {
         e.preventDefault();
-        e.stopPropagation();
+        e.stopImmediatePropagation();
         p.stepIndex += 1;
         if (p.stepIndex >= p.binding.steps.length) {
           const cmdId = p.binding.commandId;
@@ -194,7 +194,7 @@ var ObsidianChordsPlugin = class extends import_obsidian.Plugin {
       const first = b.steps[0];
       if (matchesStep(e, first)) {
         e.preventDefault();
-        e.stopPropagation();
+        e.stopImmediatePropagation();
         const timer = window.setTimeout(() => this.cancelPending(), this.settings.timeoutMs);
         this.pending = { binding: b, stepIndex: 1, timer };
         this.updateStatus(this.pendingStatusText());
@@ -382,7 +382,7 @@ var RecordChordModal = class extends import_obsidian.Modal {
       }
       if (["Control", "Meta", "Shift", "Alt"].includes(e.key)) return;
       e.preventDefault();
-      e.stopPropagation();
+      e.stopImmediatePropagation();
       const mods = [];
       if (e.ctrlKey) mods.push("Ctrl");
       if (e.metaKey) mods.push("Meta");
