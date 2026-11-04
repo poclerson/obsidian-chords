@@ -1,0 +1,9 @@
+{
+  "id": "obsidian-chords",
+  "name": "Obsidian Chords",
+  "version": "0.1.0",
+  "minAppVersion": "1.7.2",
+  "description": "VS Code-style chord keyboard shortcuts (e.g. Cmd+K then Cmd+N) for Obsidian.",
+  "author": "Pierre-Olivier",
+  "isDesktopOnly": false
+}
