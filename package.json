@@ -1,6 +1,6 @@
 {
   "name": "obsidian-chords",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "VS Code-style chord keyboard shortcuts for Obsidian.",
   "main": "main.js",
   "type": "module",
