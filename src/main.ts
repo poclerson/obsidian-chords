@@ -163,8 +163,11 @@ export default class ObsidianChordsPlugin extends Plugin {
   }
 }
 
+
 class ChordsSettingTab extends PluginSettingTab {
   plugin: ObsidianChordsPlugin;
+  private searchQuery = "";
+
   constructor(app: any, plugin: ObsidianChordsPlugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -173,8 +176,9 @@ class ChordsSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
+    containerEl.addClass("chords-settings");
 
-    containerEl.createEl("h2", { text: "Obsidian Chords" });
+    containerEl.createEl("h2", { text: "Chords" });
 
     new Setting(containerEl)
       .setName("Chord timeout (ms)")
@@ -202,83 +206,107 @@ class ChordsSettingTab extends PluginSettingTab {
         });
       });
 
-    containerEl.createEl("h3", { text: "Chord bindings" });
+    containerEl.createEl("h3", { text: "Hotkeys" });
 
-    const list = containerEl.createDiv({ cls: "chords-bindings-list" });
+    const search = containerEl.createEl("input", { type: "search" });
+    search.placeholder = "Filter commands…";
+    search.style.width = "100%";
+    search.style.marginBottom = "8px";
+    search.addEventListener("input", () => {
+      this.searchQuery = search.value.toLowerCase();
+      render();
+    });
+
+    const list = containerEl.createDiv({ cls: "chords-hotkey-list" });
+    list.style.maxHeight = "60vh";
+    list.style.overflowY = "auto";
+
+    const commands = this.getCommands();
+
+    const persist = async () => {
+      this.plugin.rebuildBindings();
+      await this.plugin.saveSettings();
+    };
 
     const render = () => {
       list.empty();
-      this.plugin.settings.bindings.forEach((b, idx) => {
-        const row = list.createDiv({ cls: "chords-binding-row" });
+      const q = this.searchQuery;
+      const filtered = commands.filter((c) => {
+        if (!q) return true;
+        return (c.name || "").toLowerCase().includes(q) || c.id.toLowerCase().includes(q);
+      });
+
+      for (const cmd of filtered) {
+        const row = list.createDiv({ cls: "chords-hotkey-row" });
         row.style.display = "flex";
-        row.style.gap = "8px";
         row.style.alignItems = "center";
-        row.style.marginBottom = "8px";
+        row.style.justifyContent = "space-between";
+        row.style.padding = "6px 4px";
+        row.style.borderBottom = "1px solid var(--background-modifier-border)";
 
-        const chordInput = row.createEl("input", { type: "text" });
-        chordInput.value = b.chord;
-        chordInput.placeholder = "Mod+k Mod+n";
-        chordInput.style.flex = "1";
-        chordInput.addEventListener("change", async () => {
-          b.chord = chordInput.value;
-          await this.persist();
-        });
+        const left = row.createDiv();
+        left.createDiv({ text: cmd.name || cmd.id, cls: "chords-cmd-name" }).style.fontWeight = "500";
+        const idEl = left.createDiv({ text: cmd.id, cls: "chords-cmd-id" });
+        idEl.style.fontSize = "0.8em";
+        idEl.style.opacity = "0.6";
 
-        const recordBtn = row.createEl("button", { text: "Record" });
-        recordBtn.addEventListener("click", () => {
-          const modal = new RecordChordModal(this.app, (chord) => {
-            b.chord = chord;
-            chordInput.value = chord;
-            void this.persist();
+        const right = row.createDiv();
+        right.style.display = "flex";
+        right.style.alignItems = "center";
+        right.style.gap = "6px";
+        right.style.flexWrap = "wrap";
+        right.style.justifyContent = "flex-end";
+
+        const bindingsForCmd = this.plugin.settings.bindings.filter((b) => b.commandId === cmd.id);
+
+        for (const b of bindingsForCmd) {
+          const chip = right.createSpan({ cls: "chords-chip" });
+          chip.textContent = b.chord || "(empty)";
+          chip.style.padding = "2px 6px";
+          chip.style.borderRadius = "4px";
+          chip.style.background = "var(--background-secondary)";
+          chip.style.fontSize = "0.85em";
+          chip.style.display = "inline-flex";
+          chip.style.alignItems = "center";
+          chip.style.gap = "4px";
+
+          const x = chip.createSpan({ text: "×" });
+          x.style.cursor = "pointer";
+          x.style.opacity = "0.7";
+          x.addEventListener("click", async () => {
+            const idx = this.plugin.settings.bindings.indexOf(b);
+            if (idx >= 0) this.plugin.settings.bindings.splice(idx, 1);
+            await persist();
+            render();
+          });
+        }
+
+        const addBtn = right.createEl("button", { text: "+" });
+        addBtn.style.padding = "0 8px";
+        addBtn.addEventListener("click", () => {
+          const modal = new RecordChordModal(this.app, async (chord) => {
+            this.plugin.settings.bindings.push({ id: newId(), chord, commandId: cmd.id });
+            await persist();
+            render();
           });
           modal.open();
         });
+      }
 
-        const cmdSelect = row.createEl("select");
-        cmdSelect.style.flex = "2";
-        this.populateCommands(cmdSelect, b.commandId);
-        cmdSelect.addEventListener("change", async () => {
-          b.commandId = cmdSelect.value;
-          await this.persist();
-        });
-
-        const delBtn = row.createEl("button", { text: "Delete" });
-        delBtn.addEventListener("click", async () => {
-          this.plugin.settings.bindings.splice(idx, 1);
-          await this.persist();
-          render();
-        });
-      });
+      if (filtered.length === 0) {
+        list.createEl("p", { text: "No commands match." });
+      }
     };
 
     render();
 
-    new Setting(containerEl).addButton((btn) => {
-      btn.setButtonText("Add binding").setCta().onClick(async () => {
-        this.plugin.settings.bindings.push({ id: newId(), chord: "", commandId: "" });
-        await this.persist();
-        render();
-      });
-    });
-
     containerEl.createEl("p", {
-      text: "Chords are sequences of key combos separated by spaces, e.g. \"Mod+k Mod+n\". Mod = Cmd on macOS, Ctrl otherwise.",
+      text: "Click + on a command to record a chord (press two key combinations). Chords are sequences like \"Mod+k Mod+n\". Mod = Cmd on macOS, Ctrl otherwise.",
       cls: "setting-item-description",
     });
   }
 
-  private async persist(): Promise<void> {
-    this.plugin.rebuildBindings();
-    await this.plugin.saveSettings();
-  }
-
-  private populateCommands(select: HTMLSelectElement, selected: string): void {
-    select.empty();
-    const opt0 = document.createElement("option");
-    opt0.value = "";
-    opt0.textContent = "— select command —";
-    select.appendChild(opt0);
-
+  private getCommands(): { id: string; name: string }[] {
     const app: any = this.app;
     let cmds: { id: string; name: string }[] = [];
     try {
@@ -294,13 +322,7 @@ class ChordsSettingTab extends PluginSettingTab {
       cmds = [];
     }
     cmds.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
-    for (const c of cmds) {
-      const opt = document.createElement("option");
-      opt.value = c.id;
-      opt.textContent = c.name ? `${c.name} (${c.id})` : c.id;
-      if (c.id === selected) opt.selected = true;
-      select.appendChild(opt);
-    }
+    return cmds;
   }
 }
 
@@ -331,7 +353,6 @@ class RecordChordModal extends Modal {
         this.close();
         return;
       }
-      // Ignore lone modifier presses.
       if (["Control", "Meta", "Shift", "Alt"].includes(e.key)) return;
 
       e.preventDefault();
@@ -342,8 +363,6 @@ class RecordChordModal extends Modal {
       if (e.metaKey) mods.push("Meta");
       if (e.shiftKey) mods.push("Shift");
       if (e.altKey) mods.push("Alt");
-      // Convert platform Mod? Record actual modifiers; but normalize Cmd/Ctrl to Mod? Keep actual for clarity?
-      // We'll store using Mod convention: if (mac && meta) or (!mac && ctrl) single mod, use Mod.
       const isMac = /Mac/i.test(navigator.platform || "");
       const modStr = mods
         .map((m) => {
