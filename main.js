@@ -27,9 +27,10 @@ __export(main_exports, {
   default: () => ObsidianChordsPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian = require("obsidian");
+var import_obsidian2 = require("obsidian");
 
 // src/chords.ts
+var import_obsidian = require("obsidian");
 var MODIFIER_ALIASES = {
   mod: "Mod",
   ctrl: "Ctrl",
@@ -42,7 +43,7 @@ var MODIFIER_ALIASES = {
   option: "Alt",
   opt: "Alt"
 };
-var PLATFORM_IS_MAC = typeof navigator !== "undefined" ? /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || "") : process.platform === "darwin";
+var PLATFORM_IS_MAC = import_obsidian.Platform.isMacOS;
 function canonicalModifier(name) {
   var _a;
   const key = name.trim().toLowerCase();
@@ -125,7 +126,7 @@ function newId() {
   bindingCounter += 1;
   return `binding-${Date.now()}-${bindingCounter}`;
 }
-var ObsidianChordsPlugin = class extends import_obsidian.Plugin {
+var ObsidianChordsPlugin = class extends import_obsidian2.Plugin {
   constructor() {
     super(...arguments);
     this.settings = { ...DEFAULT_SETTINGS };
@@ -222,10 +223,10 @@ var ObsidianChordsPlugin = class extends import_obsidian.Plugin {
       if (app.commands && typeof app.commands.executeCommandById === "function") {
         await app.commands.executeCommandById(id);
       } else {
-        new import_obsidian.Notice("Command not found: " + id);
+        new import_obsidian2.Notice("Command not found: " + id);
       }
     } catch (err) {
-      new import_obsidian.Notice("Failed to run command: " + String(err));
+      new import_obsidian2.Notice("Failed to run command: " + String(err));
     }
     this.updateStatus("");
   }
@@ -233,14 +234,14 @@ var ObsidianChordsPlugin = class extends import_obsidian.Plugin {
     if (!this.statusBarItem) return;
     if (!this.settings.showIndicator) {
       this.statusBarItem.setText("");
-      this.statusBarItem.style.display = "none";
+      this.statusBarItem.setCssStyles({ display: "none" });
       return;
     }
-    this.statusBarItem.style.display = "";
+    this.statusBarItem.setCssStyles({ display: "" });
     this.statusBarItem.setText(text);
   }
 };
-var ChordsSettingTab = class extends import_obsidian.PluginSettingTab {
+var ChordsSettingTab = class extends import_obsidian2.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.searchQuery = "";
@@ -250,35 +251,35 @@ var ChordsSettingTab = class extends import_obsidian.PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.addClass("chords-settings");
-    containerEl.createEl("h2", { text: "Chords" });
-    new import_obsidian.Setting(containerEl).setName("Chord timeout (ms)").setDesc("How long to wait for the next key in a chord.").addText((text) => {
-      text.setValue(String(this.plugin.settings.timeoutMs)).onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("Chords").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Chord timeout (ms)").setDesc("How long to wait for the next key in a chord.").addText((text) => {
+      text.setValue(String(this.plugin.settings.timeoutMs)).onChange((v) => {
         const n = parseInt(v, 10);
         if (!isNaN(n) && n > 100) {
           this.plugin.settings.timeoutMs = n;
-          await this.plugin.saveSettings();
+          void this.plugin.saveSettings();
         }
       });
     });
-    new import_obsidian.Setting(containerEl).setName("Show status bar indicator").setDesc("Display the pending chord in the status bar.").addToggle((t) => {
-      t.setValue(this.plugin.settings.showIndicator).onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("Show status bar indicator").setDesc("Display the pending chord in the status bar.").addToggle((t) => {
+      t.setValue(this.plugin.settings.showIndicator).onChange((v) => {
         this.plugin.settings.showIndicator = v;
-        await this.plugin.saveSettings();
+        void this.plugin.saveSettings();
         this.plugin.updateStatus(this.plugin.pending ? this.plugin.pendingStatusText() : "");
       });
     });
-    containerEl.createEl("h3", { text: "Hotkeys" });
+    new import_obsidian2.Setting(containerEl).setName("Hotkeys").setHeading();
     const search = containerEl.createEl("input", { type: "search" });
     search.placeholder = "Filter commands\u2026";
-    search.style.width = "100%";
-    search.style.marginBottom = "8px";
+    search.setCssStyles({ width: "100%" });
+    search.setCssStyles({ marginBottom: "8px" });
     search.addEventListener("input", () => {
       this.searchQuery = search.value.toLowerCase();
       render();
     });
     const list = containerEl.createDiv({ cls: "chords-hotkey-list" });
-    list.style.maxHeight = "60vh";
-    list.style.overflowY = "auto";
+    list.setCssStyles({ maxHeight: "60vh" });
+    list.setCssStyles({ overflowY: "auto" });
     const commands = this.getCommands();
     const persist = async () => {
       this.plugin.rebuildBindings();
@@ -293,50 +294,48 @@ var ChordsSettingTab = class extends import_obsidian.PluginSettingTab {
       });
       for (const cmd of filtered) {
         const row = list.createDiv({ cls: "chords-hotkey-row" });
-        row.style.display = "flex";
-        row.style.alignItems = "center";
-        row.style.justifyContent = "space-between";
-        row.style.padding = "6px 4px";
-        row.style.borderBottom = "1px solid var(--background-modifier-border)";
+        row.setCssStyles({ display: "flex" });
+        row.setCssStyles({ alignItems: "center" });
+        row.setCssStyles({ justifyContent: "space-between" });
+        row.setCssStyles({ padding: "6px 4px" });
+        row.setCssStyles({ borderBottom: "1px solid var(--background-modifier-border)" });
         const left = row.createDiv();
-        left.createDiv({ text: cmd.name || cmd.id, cls: "chords-cmd-name" }).style.fontWeight = "500";
+        left.createDiv({ text: cmd.name || cmd.id, cls: "chords-cmd-name" }).setCssStyles({ fontWeight: "500" });
         const idEl = left.createDiv({ text: cmd.id, cls: "chords-cmd-id" });
-        idEl.style.fontSize = "0.8em";
-        idEl.style.opacity = "0.6";
+        idEl.setCssStyles({ fontSize: "0.8em" });
+        idEl.setCssStyles({ opacity: "0.6" });
         const right = row.createDiv();
-        right.style.display = "flex";
-        right.style.alignItems = "center";
-        right.style.gap = "6px";
-        right.style.flexWrap = "wrap";
-        right.style.justifyContent = "flex-end";
+        right.setCssStyles({ display: "flex" });
+        right.setCssStyles({ alignItems: "center" });
+        right.setCssStyles({ gap: "6px" });
+        right.setCssStyles({ flexWrap: "wrap" });
+        right.setCssStyles({ justifyContent: "flex-end" });
         const bindingsForCmd = this.plugin.settings.bindings.filter((b) => b.commandId === cmd.id);
         for (const b of bindingsForCmd) {
           const chip = right.createSpan({ cls: "chords-chip" });
           chip.textContent = b.chord || "(empty)";
-          chip.style.padding = "2px 6px";
-          chip.style.borderRadius = "4px";
-          chip.style.background = "var(--background-secondary)";
-          chip.style.fontSize = "0.85em";
-          chip.style.display = "inline-flex";
-          chip.style.alignItems = "center";
-          chip.style.gap = "4px";
+          chip.setCssStyles({ padding: "2px 6px" });
+          chip.setCssStyles({ borderRadius: "4px" });
+          chip.setCssStyles({ background: "var(--background-secondary)" });
+          chip.setCssStyles({ fontSize: "0.85em" });
+          chip.setCssStyles({ display: "inline-flex" });
+          chip.setCssStyles({ alignItems: "center" });
+          chip.setCssStyles({ gap: "4px" });
           const x = chip.createSpan({ text: "\xD7" });
-          x.style.cursor = "pointer";
-          x.style.opacity = "0.7";
-          x.addEventListener("click", async () => {
+          x.setCssStyles({ cursor: "pointer" });
+          x.setCssStyles({ opacity: "0.7" });
+          x.addEventListener("click", () => {
             const idx = this.plugin.settings.bindings.indexOf(b);
             if (idx >= 0) this.plugin.settings.bindings.splice(idx, 1);
-            await persist();
-            render();
+            void persist().then(() => render());
           });
         }
         const addBtn = right.createEl("button", { text: "+" });
-        addBtn.style.padding = "0 8px";
+        addBtn.setCssStyles({ padding: "0 8px" });
         addBtn.addEventListener("click", () => {
-          const modal = new RecordChordModal(this.app, async (chord) => {
+          const modal = new RecordChordModal(this.app, (chord) => {
             this.plugin.settings.bindings.push({ id: newId(), chord, commandId: cmd.id });
-            await persist();
-            render();
+            void persist().then(() => render());
           });
           modal.open();
         });
@@ -358,11 +357,12 @@ var ChordsSettingTab = class extends import_obsidian.PluginSettingTab {
       if (app.commands && typeof app.commands.listCommands === "function") {
         cmds = app.commands.listCommands();
       } else if (app.commands && app.commands.commands) {
-        cmds = Object.keys(app.commands.commands).map((id) => {
+        const cmdsMap = app.commands.commands;
+        cmds = Object.keys(cmdsMap).map((id) => {
           var _a, _b;
           return {
             id,
-            name: (_b = (_a = app.commands.commands[id]) == null ? void 0 : _a.name) != null ? _b : id
+            name: (_b = (_a = cmdsMap[id]) == null ? void 0 : _a.name) != null ? _b : id
           };
         });
       }
@@ -373,7 +373,7 @@ var ChordsSettingTab = class extends import_obsidian.PluginSettingTab {
     return cmds;
   }
 };
-var RecordChordModal = class extends import_obsidian.Modal {
+var RecordChordModal = class extends import_obsidian2.Modal {
   constructor(app, onDone) {
     super(app);
     this.steps = [];
@@ -404,7 +404,7 @@ var RecordChordModal = class extends import_obsidian.Modal {
       if (e.metaKey) mods.push("Meta");
       if (e.shiftKey) mods.push("Shift");
       if (e.altKey) mods.push("Alt");
-      const isMac = /Mac/i.test(navigator.platform || "");
+      const isMac = import_obsidian2.Platform.isMacOS;
       const modStr = mods.map((m) => {
         if (m === "Meta" && isMac) return "Mod";
         if (m === "Ctrl" && !isMac) return "Mod";
@@ -417,7 +417,7 @@ var RecordChordModal = class extends import_obsidian.Modal {
       if (this.steps.length >= 2) {
         this.finished = true;
         const chord = this.steps.join(" ");
-        setTimeout(() => {
+        window.setTimeout(() => {
           this.onDone(chord);
           this.close();
         }, 200);

@@ -3,6 +3,8 @@
 // such as "Mod+k" or "Ctrl+Shift+P". Steps are separated by whitespace:
 //   "Mod+k Mod+n"  ->  [Mod+k, Mod+n]
 
+import { Platform } from "obsidian";
+
 export type ChordStep = {
   modifiers: string[]; // canonical modifier names, e.g. ["Mod"]
   key: string;        // canonical key name, e.g. "k", "Enter"
@@ -28,10 +30,7 @@ const MODIFIER_ALIASES: Record<string, string> = {
   opt: "Alt",
 };
 
-export const PLATFORM_IS_MAC =
-  typeof navigator !== "undefined"
-    ? /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || "")
-    : process.platform === "darwin";
+export const PLATFORM_IS_MAC = Platform.isMacOS;
 
 export function canonicalModifier(name: string): string {
   const key = name.trim().toLowerCase();
