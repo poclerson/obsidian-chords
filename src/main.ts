@@ -4,6 +4,10 @@ import {
   isValidBinding,
   matchesStep,
   formatStep,
+  parseChord,
+  canonicalModifier,
+  expandMod,
+  normalizeKey,
   type ChordBinding,
 } from "./chords";
 
@@ -283,6 +287,18 @@ class ChordsSettingTab extends PluginSettingTab {
             if (idx >= 0) this.plugin.settings.bindings.splice(idx, 1);
             void persist().then(() => render());
           });
+
+          const conflicts = this.getConflicts(b);
+          if (conflicts.length > 0) {
+            const bang = right.createSpan({ text: "!" });
+            bang.setCssStyles({ color: "var(--text-error)" });
+            bang.setCssStyles({ fontWeight: "700" });
+            bang.setCssStyles({ cursor: "help" });
+            bang.setCssStyles({ marginLeft: "2px" });
+            bang.setAttribute("tabindex", "0");
+            bang.setAttribute("title", "Conflict: " + conflicts.join(", "));
+            bang.setAttribute("aria-label", bang.getAttribute("title") || "");
+          }
         }
 
         const addBtn = right.createEl("button", { text: "+" });
@@ -327,6 +343,52 @@ class ChordsSettingTab extends PluginSettingTab {
     }
     cmds.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
     return cmds;
+  }
+
+  private stepsMatch(a: { modifiers: string[]; key: string }, b: { modifiers: string[]; key: string }): boolean {
+    const aMods = new Set(expandMod(a.modifiers.map(canonicalModifier)));
+    const bMods = new Set(expandMod(b.modifiers.map(canonicalModifier)));
+    if (aMods.size !== bMods.size) return false;
+    for (const m of aMods) if (!bMods.has(m)) return false;
+    return normalizeKey(a.key) === normalizeKey(b.key);
+  }
+
+  private getConflicts(b: { chord: string; commandId: string }): string[] {
+    const steps = parseChord(b.chord);
+    const hm = (this.app as any).hotkeyManager;
+    const commands = this.getCommands();
+    const conflicts = new Set<string>();
+
+    for (const step of steps) {
+      for (const cmd of commands) {
+        let hks: any[] = [];
+        try {
+          if (hm && typeof hm.getHotkeys === "function") {
+            const custom = hm.getHotkeys(cmd.id);
+            if (custom !== undefined) hks = custom || [];
+            else if (typeof hm.getDefaultHotkeys === "function") hks = hm.getDefaultHotkeys(cmd.id) || [];
+          }
+        } catch {
+          hks = [];
+        }
+        for (const hk of hks) {
+          const hkStep = { modifiers: hk.modifiers || [], key: hk.key || "" };
+          if (this.stepsMatch(hkStep, step)) {
+            conflicts.add(cmd.name || cmd.id);
+          }
+        }
+      }
+      // conflicts with other chord bindings using the same step
+      for (const other of this.plugin.settings.bindings) {
+        if (other === b) continue;
+        for (const os of parseChord(other.chord)) {
+          if (this.stepsMatch(os, step)) {
+            conflicts.add(`Chord: ${other.chord || "(empty)"}`);
+          }
+        }
+      }
+    }
+    return [...conflicts];
   }
 }
 

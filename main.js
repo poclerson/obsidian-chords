@@ -329,6 +329,17 @@ var ChordsSettingTab = class extends import_obsidian2.PluginSettingTab {
             if (idx >= 0) this.plugin.settings.bindings.splice(idx, 1);
             void persist().then(() => render());
           });
+          const conflicts = this.getConflicts(b);
+          if (conflicts.length > 0) {
+            const bang = right.createSpan({ text: "!" });
+            bang.setCssStyles({ color: "var(--text-error)" });
+            bang.setCssStyles({ fontWeight: "700" });
+            bang.setCssStyles({ cursor: "help" });
+            bang.setCssStyles({ marginLeft: "2px" });
+            bang.setAttribute("tabindex", "0");
+            bang.setAttribute("title", "Conflict: " + conflicts.join(", "));
+            bang.setAttribute("aria-label", bang.getAttribute("title") || "");
+          }
         }
         const addBtn = right.createEl("button", { text: "+" });
         addBtn.setCssStyles({ padding: "0 8px" });
@@ -371,6 +382,48 @@ var ChordsSettingTab = class extends import_obsidian2.PluginSettingTab {
     }
     cmds.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
     return cmds;
+  }
+  stepsMatch(a, b) {
+    const aMods = new Set(expandMod(a.modifiers.map(canonicalModifier)));
+    const bMods = new Set(expandMod(b.modifiers.map(canonicalModifier)));
+    if (aMods.size !== bMods.size) return false;
+    for (const m of aMods) if (!bMods.has(m)) return false;
+    return normalizeKey(a.key) === normalizeKey(b.key);
+  }
+  getConflicts(b) {
+    const steps = parseChord(b.chord);
+    const hm = this.app.hotkeyManager;
+    const commands = this.getCommands();
+    const conflicts = /* @__PURE__ */ new Set();
+    for (const step of steps) {
+      for (const cmd of commands) {
+        let hks = [];
+        try {
+          if (hm && typeof hm.getHotkeys === "function") {
+            const custom = hm.getHotkeys(cmd.id);
+            if (custom !== void 0) hks = custom || [];
+            else if (typeof hm.getDefaultHotkeys === "function") hks = hm.getDefaultHotkeys(cmd.id) || [];
+          }
+        } catch (e) {
+          hks = [];
+        }
+        for (const hk of hks) {
+          const hkStep = { modifiers: hk.modifiers || [], key: hk.key || "" };
+          if (this.stepsMatch(hkStep, step)) {
+            conflicts.add(cmd.name || cmd.id);
+          }
+        }
+      }
+      for (const other of this.plugin.settings.bindings) {
+        if (other === b) continue;
+        for (const os of parseChord(other.chord)) {
+          if (this.stepsMatch(os, step)) {
+            conflicts.add(`Chord: ${other.chord || "(empty)"}`);
+          }
+        }
+      }
+    }
+    return [...conflicts];
   }
 };
 var RecordChordModal = class extends import_obsidian2.Modal {
